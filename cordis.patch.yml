@@ -1,0 +1,27 @@
+# dsh-balance-widget — the layer applied when a profile lists this bundle.
+# A top-level YAML array of loader patch entries. Applied after @deepseek-ai/dsh-base
+# and @deepseek-ai/dsh-web-app (bundle order), before the profile's own patch.
+#
+# One row activates BOTH halves of the plugin:
+#   - the host half (package main -> index.js) runs in Node and registers the
+#     GET /api/balance-widget route on the web server;
+#   - the browser half (exports["./client"] -> client.js) is picked up by the
+#     client-modules scan (dsh.client) and rendered as a floating widget in the
+#     shell.overlay slot.
+#
+# API key resolution order (per request, never cached):
+#   1. config.apiKey below (only if you really want it in YAML — prefer 2)
+#   2. the DEEPSEEK_API_KEY credential in $DSH_HOME/.credentials.yaml
+#   3. the DEEPSEEK_API_KEY environment variable
+#
+# NOTE: config values are shared with the browser half, so keep secrets out of
+# this file — the credentials seam is the safe place for the key.
+- insert:
+    - id: balance-widget
+      name: dsh-balance-widget
+      inject: [webServer, credentials]
+      config:
+        baseUrl: https://api.deepseek.com
+        # Polling interval the widget uses (the host echoes it in the route
+        # response; the browser re-schedules from there).
+        intervalSeconds: 60
