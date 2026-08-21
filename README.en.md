@@ -7,6 +7,7 @@
 ## Features
 
 - **Live balance**: auto-refreshes every 60 seconds (configurable) with a live countdown; a manual refresh button is one click away
+- **Spend since open**: an estimate of how much was spent since this tab was opened (balance-delta), shown compactly in the footer line; resets when the tab closes, survives page refreshes
 - **Polls only while the page is open**: the `dsh web` process itself never makes a request unless a browser tab is actually polling
 - **Fully draggable**: the card, the collapsed pill, and the hidden-state pill all drag freely; they share one remembered position (localStorage)
 - **Out of the way**: collapse to a small pill, or hide it entirely (a "💰 余额" restore button stays behind)
@@ -106,6 +107,10 @@ The plugin is a single package with two halves: `index.js` (Node server side) + 
 
 - The API key is used only inside the host process — it never appears in the browser, in network responses, or in any Git commit (the repository contains logic and copy only).
 - The balance route has no auth, but the web server binds `127.0.0.1` by default.
+
+## Known Limitations
+
+- "Spend since open" is a **balance-delta estimate** (baseline total at page open − current total), not an official bill: mid-session top-ups, refunds, and pending charges distort it. It is tracked per browser tab (page refresh keeps it; closing the tab resets it). For exact usage, use the "用量 ↗" link on each balance row.
 
 ## License
 

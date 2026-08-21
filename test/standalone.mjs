@@ -17,6 +17,38 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { apply, fetchBalance, resolveApiKey, ROUTE_PATH } from '../index.js'
 
+/**
+ * Evaluate the browser bundle's pure helpers (computeSpent etc.) without a
+ * browser: shim window/document and a stub React, run the factory, read the
+ * extra exports.
+ */
+function loadClientHelpers() {
+  const saved = { window: globalThis.window, document: globalThis.document }
+  let registered = null
+  globalThis.window = { __ModuleLoader__: { load: (h) => { registered = h } } }
+  globalThis.document = {
+    head: { appendChild: () => {} },
+    querySelector: () => null,
+    createElement: () => ({ dataset: {} }),
+  }
+  const fakeReact = {
+    useState: () => [undefined, () => {}],
+    useEffect: () => {},
+    useLayoutEffect: () => {},
+    useRef: () => ({}),
+    useCallback: (f) => f,
+    createElement: () => ({}),
+  }
+  new Function(readFileSync(new URL('../client.js', import.meta.url), 'utf8'))()
+  const mod = registered.factory((spec) => {
+    if (spec === 'react') return fakeReact
+    throw new Error('unexpected require: ' + spec)
+  })
+  globalThis.window = saved.window
+  globalThis.document = saved.document
+  return mod
+}
+
 function parseYamlCredentials(text) {
   const out = {}
   for (const line of text.split('\n')) {
@@ -85,6 +117,29 @@ async function main() {
     .then(() => 'UNEXPECTED success')
     .catch((e) => e.message)
   console.log('fetchBalance(bogus key):', fakeBalance.includes('responded') ? `rejects (pass): ${fakeBalance.slice(0, 60)}` : 'UNEXPECTED')
+
+  // --- client-side spend math (evaluated from the browser bundle) ----------
+  const client = loadClientHelpers()
+  const { computeSpent, formatSpent, totalsOf } = client
+  const cases = [
+    ['simple delta', computeSpent({ CNY: '7.49' }, { CNY: '6.80' }), { CNY: '0.69' }],
+    ['rising balance clamps to 0', computeSpent({ CNY: '7.49' }, { CNY: '8.00' }), { CNY: '0.00' }],
+    ['multi currency', computeSpent({ CNY: '7.49', USD: '5.00' }, { CNY: '6.00', USD: '4.00' }), { CNY: '1.49', USD: '1.00' }],
+    ['string normalization', computeSpent({ CNY: '7.4900' }, { CNY: '7.0000' }), { CNY: '0.49' }],
+    ['missing current keeps 0', computeSpent({ CNY: '7.49' }, {}), { CNY: '0.00' }],
+    ['null baseline', computeSpent(null, { CNY: '6.00' }), {}],
+  ]
+  for (const [label, got, want] of cases) {
+    const ok = JSON.stringify(got) === JSON.stringify(want)
+    console.log(`computeSpent ${label}:`, ok ? '(pass)' : `FAIL got=${JSON.stringify(got)} want=${JSON.stringify(want)}`)
+    if (!ok) failures++
+  }
+  const spentLabel = formatSpent(computeSpent({ CNY: '7.49' }, { CNY: '7.00' }))
+  console.log('formatSpent:', spentLabel === '-¥0.49' ? `'${spentLabel}' (pass)` : `FAIL '${spentLabel}'`)
+  if (spentLabel !== '-¥0.49') failures++
+  const totals = totalsOf([{ currency: 'CNY', totalBalance: '7.49' }, { currency: 'USD', totalBalance: '1.00' }])
+  console.log('totalsOf:', JSON.stringify(totals) === JSON.stringify({ CNY: '7.49', USD: '1.00' }) ? '(pass)' : `FAIL ${JSON.stringify(totals)}`)
+  if (JSON.stringify(totals) !== JSON.stringify({ CNY: '7.49', USD: '1.00' })) failures++
 
   // --- route behavior ------------------------------------------------------
   const { ctx, getRoute } = fakeCtx({})
