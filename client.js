@@ -47,6 +47,9 @@ window.__ModuleLoader__.load({
         '[data-dsh-balance-widget-header] { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--dsw-alias-border-l2, #e5e7eb); cursor: grab; background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.03)); touch-action: none; }',
         '[data-dsh-balance-widget-header]:active { cursor: grabbing; }',
         '[data-dsh-balance-widget-title] { flex: 1; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; min-width: 0; }',
+        '[data-dsh-balance-widget-logo] { display: inline-flex; align-items: center; flex: none; line-height: 0; cursor: pointer; border-radius: 5px; }',
+        '[data-dsh-balance-widget-logo]:hover { opacity: 0.85; }',
+        '[data-dsh-balance-widget-logo-img] { display: block; width: 16px; height: 16px; border-radius: 4px; }',
         '[data-dsh-balance-widget-dot] { width: 8px; height: 8px; border-radius: 50%; flex: none; }',
         '[data-dsh-balance-widget-dot][data-status="ok"] { background: #22c55e; }',
         '[data-dsh-balance-widget-dot][data-status="loading"] { background: #f59e0b; }',
@@ -74,6 +77,11 @@ window.__ModuleLoader__.load({
     }
 
     // ── widget state helpers ──────────────────────────────────────────────────
+    // DeepSeek whale logo (the site's own favicon), inlined so the widget needs
+    // no external image request. Placeholder is filled by the build step.
+    var DS_LOGO_URL = "data:image/png;base64,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";
+    var DS_HOME_URL = "https://www.deepseek.com/";
+
     var STORAGE_HIDDEN = "dsh-balance-widget.hidden";
     var STORAGE_POS = "dsh-balance-widget.pos";
     var CURRENCY_SYMBOLS = { CNY: "¥", USD: "$", EUR: "€", JPY: "¥" };
@@ -215,9 +223,9 @@ window.__ModuleLoader__.load({
 
       function onPointerDown(e) {
         if (e.button !== 0) return;
-        // Icon buttons must keep their click — never start a drag (and never
-        // pointer-capture, which would retarget the click away from the button).
-        if (e.target && e.target.closest && e.target.closest("[data-dsh-balance-widget-btn]")) return;
+        // Icon buttons and the logo link must keep their click — never start a
+        // drag (and never pointer-capture, which would retarget the click away).
+        if (e.target && e.target.closest && e.target.closest("[data-dsh-balance-widget-btn], [data-dsh-balance-widget-logo]")) return;
         var rect = e.currentTarget.getBoundingClientRect();
         dragRef.current = {
           dx: e.clientX - rect.left,
@@ -399,8 +407,25 @@ window.__ModuleLoader__.load({
             el(
               "div",
               { "data-dsh-balance-widget-title": "" },
-              el("span", { "data-dsh-balance-widget-dot": "", "data-status": dotStatus }),
-              el("span", null, title)
+              el(
+                "a",
+                {
+                  "data-dsh-balance-widget-logo": "",
+                  href: DS_HOME_URL,
+                  target: "_blank",
+                  rel: "noreferrer noopener",
+                  title: "DeepSeek 官网",
+                },
+                el("img", {
+                  "data-dsh-balance-widget-logo-img": "",
+                  src: DS_LOGO_URL,
+                  alt: "DeepSeek",
+                  width: 16,
+                  height: 16,
+                })
+              ),
+              el("span", null, title),
+              el("span", { "data-dsh-balance-widget-dot": "", "data-status": dotStatus })
             ),
             el(
               "button",
